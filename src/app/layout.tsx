@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Twitch API 테스트 툴",
-  description: "Twitch API 실험을 위한 로컬 테스트 인터페이스",
+  title: "kimpuro.com API 테스트 툴",
+  description: "여러 API들의 테스트를 위한 페이지입니다.",
 };
 
 export default function RootLayout({
