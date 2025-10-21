@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -16,11 +17,14 @@ export function Header() {
   return (
     <header className="border-b border-black/5 bg-background/80 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
-        <Link href="/" className="flex items-center gap-2 text-lg font-semibold">
-          <span className="rounded bg-[#9146FF] px-2 py-1 text-sm font-bold text-white">
-            Twitch
+        <Link href="/" className="flex items-center gap-3 text-lg font-semibold">
+          <span className="relative h-9 w-9 overflow-hidden rounded-full border border-[var(--color-border)]">
+            <Image src="/puro.JPG" alt="플랫폼 아이콘" fill sizes="36px" className="object-cover" />
           </span>
-          <span>API 테스트</span>
+          <span>
+            <span className="block text-sm text-foreground/70">API 테스트</span>
+            <span className="block text-base font-semibold text-foreground">플랫폼 선택</span>
+          </span>
         </Link>
         <nav className="flex items-center gap-4 text-sm text-foreground/80">
           {NAV_ITEMS.map((item) => {
