@@ -4,8 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { href: "/", label: "테스트 도구" },
-  { href: "https://dev.twitch.tv/docs/api", label: "공식 문서", external: true },
+  { href: "/", label: "플랫폼 선택" },
+  { href: "/twitch", label: "Twitch" },
+  { href: "/tiktok", label: "TikTok" },
+  { href: "https://dev.twitch.tv/docs/api", label: "Twitch 문서", external: true },
 ];
 
 export function Header() {
