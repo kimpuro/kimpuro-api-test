@@ -7,6 +7,7 @@ const SCOPES = [
   "channel:manage:polls",
   "user:read:email",
   "user:read:follows",
+  "user:read:subscriptions",
   "moderation:read",
   "chat:read",
   "chat:edit",
@@ -379,7 +380,7 @@ export function TwitchTester({ envSummary }: TwitchTesterProps) {
                   value={state.redirectUri}
                   onChange={(event) => updateState("redirectUri", event.target.value.trim())}
                   type="url"
-                  placeholder="http://localhost:3000/auth/callback"
+                  placeholder="https://api-test.kimpuro.com/auth/callback"
                   className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] px-3 py-2 text-sm text-foreground focus:border-[#9146FF] focus:outline-none"
                 />
               </label>
