@@ -116,7 +116,9 @@ function buildOAuthUrl(
 }
 
 export function TwitchTester({ envSummary }: TwitchTesterProps) {
-  const [state, setState] = useState<PersistedState>(() => loadPersistedState());
+  // 서버/클라이언트에서 동일한 초기 HTML을 보장하기 위해
+  // 초기 상태는 항상 `defaultState`로 설정하고 클라이언트 마운트 시 로컬 스토리지를 읽어 덮어씁니다.
+  const [state, setState] = useState<PersistedState>(defaultState);
   const [forceVerify, setForceVerify] = useState(false);
   const [authStatus, setAuthStatus] = useState<
     | { type: "idle" }
@@ -140,6 +142,21 @@ export function TwitchTester({ envSummary }: TwitchTesterProps) {
   useEffect(() => {
     persistState(state);
   }, [state]);
+
+  // 클라이언트에서만 로컬 저장소에 있는 상태를 불러와 초기값을 덮어씁니다.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const persisted = loadPersistedState();
+      // persisted는 defaultState를 기반으로 병합된 형태이므로 그대로 적용해도 안전합니다.
+      setState(persisted);
+    } catch (err) {
+      // 실패해도 앱 동작에는 영향이 없으므로 콘솔에만 남깁니다.
+      // (이미 loadPersistedState 내부에서도 예외를 잡고 있음)
+      // eslint-disable-next-line no-console
+      console.warn("Persisted state load failed on mount", err);
+    }
+  }, []);
 
   const updateState = useCallback(<K extends keyof PersistedState>(key: K, value: PersistedState[K]) => {
     setState((prev) => ({ ...prev, [key]: value }));
