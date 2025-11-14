@@ -60,6 +60,7 @@ type PersistedState = {
   refreshToken: string;
   tokenExpiresAt: number | null;
   backendUrl: string;
+  backendAuthHeader: string;
 };
 
 const defaultState: PersistedState = {
@@ -75,6 +76,7 @@ const defaultState: PersistedState = {
   refreshToken: "",
   tokenExpiresAt: null,
   backendUrl: "",
+  backendAuthHeader: "",
 };
 
 function loadPersistedState(): PersistedState {
@@ -253,26 +255,46 @@ export function TwitchTester({ envSummary }: TwitchTesterProps) {
     }
 
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      // Authorization 헤더가 있으면 추가
+      if (state.backendAuthHeader) {
+        headers["Authorization"] = state.backendAuthHeader;
+      }
+
       const response = await fetch(state.backendUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
-          access_token: state.accessToken,
-          refresh_token: state.refreshToken,
+          provider: "twitch",
+          accessToken: state.accessToken,
+          refreshToken: state.refreshToken,
         }),
       });
 
-      if (!response.ok) {
-        const text = await response.text().catch(() => "");
-        throw new Error(text || `서버 응답 오류 (${response.status})`);
+      const responseText = await response.text().catch(() => "");
+      
+      // 응답을 JSON으로 파싱 시도
+      let responseData;
+      try {
+        responseData = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        responseData = responseText;
       }
 
-      window.alert("토큰 전송 성공");
+      // 서버 응답을 포맷팅해서 표시
+      const formattedResponse = typeof responseData === "string" 
+        ? responseData 
+        : JSON.stringify(responseData, null, 2);
+
+      window.alert(`서버 응답 (${response.status}):\n\n${formattedResponse}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "토큰 전송 중 알 수 없는 오류";
       window.alert(`토큰 전송 실패: ${message}`);
     }
-  }, [state.backendUrl, state.accessToken, state.refreshToken, state.clientId]);
+  }, [state.backendUrl, state.accessToken, state.refreshToken, state.backendAuthHeader]);
 
   const handleApiCall = useCallback(async () => {
     if (!state.accessToken) {
@@ -562,6 +584,13 @@ export function TwitchTester({ envSummary }: TwitchTesterProps) {
                         onChange={(event) => updateState("backendUrl", event.target.value)}
                         type="url"
                         placeholder="백엔드 수신 URL (예: https://example.com/tokens)"
+                        className="rounded-full border px-3 py-1 text-xs w-64"
+                      />
+                      <input
+                        value={state.backendAuthHeader}
+                        onChange={(event) => updateState("backendAuthHeader", event.target.value)}
+                        type="text"
+                        placeholder="Authorization 헤더 (예: Bearer your-token)"
                         className="rounded-full border px-3 py-1 text-xs w-64"
                       />
                       <button
