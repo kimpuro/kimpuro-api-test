@@ -59,6 +59,7 @@ type PersistedState = {
   accessToken: string;
   refreshToken: string;
   tokenExpiresAt: number | null;
+  backendUrl: string;
 };
 
 const defaultState: PersistedState = {
@@ -73,6 +74,7 @@ const defaultState: PersistedState = {
   accessToken: "",
   refreshToken: "",
   tokenExpiresAt: null,
+  backendUrl: "",
 };
 
 function loadPersistedState(): PersistedState {
@@ -239,6 +241,38 @@ export function TwitchTester({ envSummary }: TwitchTesterProps) {
       setAuthStatus({ type: "error", error: message });
     }
   }, [state.clientId, state.clientSecret, state.refreshToken, updateState]);
+
+  const handleSendTokens = useCallback(async () => {
+    if (!state.backendUrl) {
+      window.alert("먼저 전송할 백엔드 URL을 입력하세요.");
+      return;
+    }
+    if (!state.accessToken && !state.refreshToken) {
+      window.alert("전송할 토큰(access_token 또는 refresh_token)이 없습니다.");
+      return;
+    }
+
+    try {
+      const response = await fetch(state.backendUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          access_token: state.accessToken,
+          refresh_token: state.refreshToken,
+        }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(text || `서버 응답 오류 (${response.status})`);
+      }
+
+      window.alert("토큰 전송 성공");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "토큰 전송 중 알 수 없는 오류";
+      window.alert(`토큰 전송 실패: ${message}`);
+    }
+  }, [state.backendUrl, state.accessToken, state.refreshToken, state.clientId]);
 
   const handleApiCall = useCallback(async () => {
     if (!state.accessToken) {
@@ -523,6 +557,20 @@ export function TwitchTester({ envSummary }: TwitchTesterProps) {
                       {state.refreshToken ? (
                         <CopyButton label="Refresh Token" value={state.refreshToken} />
                       ) : null}
+                      <input
+                        value={state.backendUrl}
+                        onChange={(event) => updateState("backendUrl", event.target.value)}
+                        type="url"
+                        placeholder="백엔드 수신 URL (예: https://example.com/tokens)"
+                        className="rounded-full border px-3 py-1 text-xs w-64"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSendTokens}
+                        className="rounded-full border border-[#9146FF] px-3 py-1 text-xs font-semibold text-[#9146FF] transition hover:bg-[#f3ebff]"
+                      >
+                        토큰 전송
+                      </button>
                       <button
                         type="button"
                         onClick={handleRefreshToken}
