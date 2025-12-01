@@ -24,6 +24,8 @@ type ClipData = {
 type ClipStatsResult = {
   totalClips: number;
   totalViews: number;
+  totalFollowers: number;
+  totalSubscribers: number | null; // null = 조회 불가 (본인 채널이 아님)
   clips: ClipData[];
   broadcasterName: string;
   broadcasterId: string;
@@ -39,6 +41,7 @@ export function ClipStats({ accessToken, clientId }: ClipStatsProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ClipStatsResult | null>(null);
+  const [progress, setProgress] = useState<string>("");
 
   const handleSearch = async () => {
     if (!streamerName.trim()) {
@@ -54,6 +57,7 @@ export function ClipStats({ accessToken, clientId }: ClipStatsProps) {
     setLoading(true);
     setError(null);
     setResult(null);
+    setProgress("사용자 정보 조회 중...");
 
     try {
       // 1단계: 스트리머 이름으로 사용자 ID 가져오기
@@ -79,56 +83,130 @@ export function ClipStats({ accessToken, clientId }: ClipStatsProps) {
       const broadcasterId = userData.data[0].id;
       const broadcasterName = userData.data[0].display_name;
 
-      // 2단계: 모든 클립 가져오기 (페이지네이션 처리)
-      let allClips: ClipData[] = [];
-      let cursor: string | undefined;
-      let hasMore = true;
+      // 2단계: 팔로워 수 가져오기
+      setProgress("팔로워 수 조회 중...");
+      let totalFollowers = 0;
+      try {
+        const followersResponse = await fetch(
+          `https://api.twitch.tv/helix/channels/followers?broadcaster_id=${broadcasterId}&first=1`,
+          {
+            headers: {
+              "Client-Id": clientId,
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
 
-      while (hasMore) {
-        const clipsUrl = new URL("https://api.twitch.tv/helix/clips");
-        clipsUrl.searchParams.set("broadcaster_id", broadcasterId);
-        clipsUrl.searchParams.set("first", "100"); // 한 번에 최대 100개
-
-        if (cursor) {
-          clipsUrl.searchParams.set("after", cursor);
+        if (followersResponse.ok) {
+          const followersData = await followersResponse.json();
+          totalFollowers = followersData.total || 0;
         }
-
-        const clipsResponse = await fetch(clipsUrl.toString(), {
-          headers: {
-            "Client-Id": clientId,
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        if (!clipsResponse.ok) {
-          throw new Error(`클립 조회 실패 (${clipsResponse.status})`);
-        }
-
-        const clipsData = await clipsResponse.json();
-        
-        if (clipsData.data && clipsData.data.length > 0) {
-          allClips = [...allClips, ...clipsData.data];
-        }
-
-        // 다음 페이지가 있는지 확인
-        if (clipsData.pagination && clipsData.pagination.cursor) {
-          cursor = clipsData.pagination.cursor;
-        } else {
-          hasMore = false;
-        }
-
-        // 안전장치: 최대 1000개까지만 (API 제한 및 성능 고려)
-        if (allClips.length >= 1000) {
-          hasMore = false;
-        }
+      } catch (error) {
+        console.warn("팔로워 수 조회 실패:", error);
       }
 
-      // 3단계: 통계 계산
+      // 3단계: 구독자 수 가져오기 (본인 채널만 가능)
+      setProgress("구독자 수 조회 중...");
+      let totalSubscribers: number | null = null;
+      try {
+        const subscribersResponse = await fetch(
+          `https://api.twitch.tv/helix/subscriptions?broadcaster_id=${broadcasterId}&first=1`,
+          {
+            headers: {
+              "Client-Id": clientId,
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        if (subscribersResponse.ok) {
+          const subscribersData = await subscribersResponse.json();
+          totalSubscribers = subscribersData.total || 0;
+        } else if (subscribersResponse.status === 401 || subscribersResponse.status === 403) {
+          // 권한 없음 - 본인 채널이 아님
+          totalSubscribers = null;
+        }
+      } catch (error) {
+        console.warn("구독자 수 조회 실패:", error);
+      }
+
+      // 4단계: 모든 클립 가져오기 (시간 범위별로 분할 조회)
+      setProgress("클립 수집 중... (0개)");
+      let allClips: ClipData[] = [];
+      
+      // 시간 범위를 7일 단위로 나눠서 조회 (Twitch API 제한 우회)
+      const now = new Date();
+      const startDate = new Date(now);
+      startDate.setFullYear(startDate.getFullYear() - 2); // 최근 2년간의 클립 조회
+      
+      let currentEndDate = new Date(now);
+      let currentStartDate = new Date(currentEndDate);
+      currentStartDate.setDate(currentStartDate.getDate() - 7); // 7일 단위
+      
+      const clipIds = new Set<string>(); // 중복 제거용
+
+      while (currentEndDate > startDate) {
+        let cursor: string | undefined;
+        let hasMore = true;
+
+        while (hasMore) {
+          const clipsUrl = new URL("https://api.twitch.tv/helix/clips");
+          clipsUrl.searchParams.set("broadcaster_id", broadcasterId);
+          clipsUrl.searchParams.set("first", "100");
+          clipsUrl.searchParams.set("started_at", currentStartDate.toISOString());
+          clipsUrl.searchParams.set("ended_at", currentEndDate.toISOString());
+
+          if (cursor) {
+            clipsUrl.searchParams.set("after", cursor);
+          }
+
+          const clipsResponse = await fetch(clipsUrl.toString(), {
+            headers: {
+              "Client-Id": clientId,
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+
+          if (!clipsResponse.ok) {
+            throw new Error(`클립 조회 실패 (${clipsResponse.status})`);
+          }
+
+          const clipsData = await clipsResponse.json();
+          
+          if (clipsData.data && clipsData.data.length > 0) {
+            // 중복 제거하며 추가
+            for (const clip of clipsData.data) {
+              if (!clipIds.has(clip.id)) {
+                clipIds.add(clip.id);
+                allClips.push(clip);
+              }
+            }
+            setProgress(`클립 수집 중... (${allClips.length.toLocaleString()}개) - ${currentStartDate.toLocaleDateString()} ~ ${currentEndDate.toLocaleDateString()}`);
+          }
+
+          // 다음 페이지가 있는지 확인
+          if (clipsData.pagination && clipsData.pagination.cursor) {
+            cursor = clipsData.pagination.cursor;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        // 다음 7일 구간으로 이동
+        currentEndDate = new Date(currentStartDate);
+        currentStartDate = new Date(currentEndDate);
+        currentStartDate.setDate(currentStartDate.getDate() - 7);
+      }
+
+      // 5단계: 통계 계산
+      setProgress("통계 계산 중...");
       const totalViews = allClips.reduce((sum, clip) => sum + clip.view_count, 0);
 
       setResult({
         totalClips: allClips.length,
         totalViews,
+        totalFollowers,
+        totalSubscribers,
         clips: allClips,
         broadcasterName,
         broadcasterId,
@@ -138,6 +216,7 @@ export function ClipStats({ accessToken, clientId }: ClipStatsProps) {
       setError(message);
     } finally {
       setLoading(false);
+      setProgress("");
     }
   };
 
@@ -172,6 +251,15 @@ export function ClipStats({ accessToken, clientId }: ClipStatsProps) {
         </button>
       </div>
 
+      {loading && progress && (
+        <div className="mb-4 rounded-lg border border-blue-300 bg-blue-50 p-4 text-sm text-blue-700">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-700 border-t-transparent"></div>
+            <p className="font-semibold">{progress}</p>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-700">
           <p className="font-semibold">오류 발생</p>
@@ -198,6 +286,25 @@ export function ClipStats({ accessToken, clientId }: ClipStatsProps) {
                 <p className="mt-1 text-3xl font-bold text-[#14ad5f]">
                   {result.totalViews.toLocaleString()}회
                 </p>
+              </div>
+              <div className="rounded-lg bg-white p-4 shadow-sm">
+                <p className="text-sm text-foreground/70">팔로워 수</p>
+                <p className="mt-1 text-3xl font-bold text-[#FF6B6B]">
+                  {result.totalFollowers.toLocaleString()}명
+                </p>
+              </div>
+              <div className="rounded-lg bg-white p-4 shadow-sm">
+                <p className="text-sm text-foreground/70">구독자 수</p>
+                {result.totalSubscribers !== null ? (
+                  <p className="mt-1 text-3xl font-bold text-[#FFB800]">
+                    {result.totalSubscribers.toLocaleString()}명
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm text-foreground/50">
+                    조회 불가<br />
+                    <span className="text-xs">(본인 채널만 가능)</span>
+                  </p>
+                )}
               </div>
             </div>
           </div>
