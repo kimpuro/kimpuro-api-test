@@ -38,6 +38,7 @@ type ClipStatsProps = {
 
 export function ClipStats({ accessToken, clientId }: ClipStatsProps) {
   const [streamerName, setStreamerName] = useState("");
+  const [months, setMonths] = useState(24); // 기본값: 24개월 (2년)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ClipStatsResult | null>(null);
@@ -137,7 +138,7 @@ export function ClipStats({ accessToken, clientId }: ClipStatsProps) {
       // 시간 범위를 7일 단위로 나눠서 조회 (Twitch API 제한 우회)
       const now = new Date();
       const startDate = new Date(now);
-      startDate.setFullYear(startDate.getFullYear() - 2); // 최근 2년간의 클립 조회
+      startDate.setMonth(startDate.getMonth() - months); // 입력받은 개월 수만큼 과거로
       
       let currentEndDate = new Date(now);
       let currentStartDate = new Date(currentEndDate);
@@ -224,31 +225,52 @@ export function ClipStats({ accessToken, clientId }: ClipStatsProps) {
     <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-6 shadow-sm">
       <h2 className="mb-4 text-2xl font-semibold text-foreground">스트리머 클립 통계</h2>
       <p className="mb-6 text-sm text-foreground/90">
-        스트리머 이름을 입력하면 해당 스트리머의 전체 클립 개수와 총 조회수를 확인할 수 있습니다.
+        스트리머 이름과 조회 기간을 입력하면 해당 기간의 클립 개수와 총 조회수를 확인할 수 있습니다.
       </p>
 
-      <div className="mb-6 flex gap-3">
-        <input
-          type="text"
-          value={streamerName}
-          onChange={(e) => setStreamerName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              void handleSearch();
-            }
-          }}
-          placeholder="스트리머 이름 (예: fps_shaka)"
-          className="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-3 text-sm text-foreground placeholder:text-foreground/50 focus:border-[#9146FF] focus:outline-none"
-          disabled={loading}
-        />
-        <button
-          type="button"
-          onClick={handleSearch}
-          disabled={loading || !accessToken || !clientId}
-          className="rounded-lg bg-[#9146FF] px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-[#6c2ddc] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {loading ? "조회 중..." : "조회"}
-        </button>
+      <div className="mb-6 space-y-3">
+        <div className="flex gap-3">
+          <input
+            type="text"
+            value={streamerName}
+            onChange={(e) => setStreamerName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                void handleSearch();
+              }
+            }}
+            placeholder="스트리머 이름 (예: fps_shaka)"
+            className="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-3 text-sm text-foreground placeholder:text-foreground/50 focus:border-[#9146FF] focus:outline-none"
+            disabled={loading}
+          />
+          <button
+            type="button"
+            onClick={handleSearch}
+            disabled={loading || !accessToken || !clientId}
+            className="rounded-lg bg-[#9146FF] px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-[#6c2ddc] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {loading ? "조회 중..." : "조회"}
+          </button>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-foreground/90">
+            <span>조회 기간:</span>
+            <input
+              type="number"
+              min="1"
+              max="120"
+              value={months}
+              onChange={(e) => setMonths(Math.max(1, Math.min(120, parseInt(e.target.value) || 24)))}
+              className="w-20 rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] px-3 py-2 text-sm text-foreground text-center focus:border-[#9146FF] focus:outline-none"
+              disabled={loading}
+            />
+            <span>개월</span>
+          </label>
+          <span className="text-xs text-foreground/60">
+            (1~120개월, 기본: 24개월)
+          </span>
+        </div>
       </div>
 
       {loading && progress && (
@@ -273,6 +295,7 @@ export function ClipStats({ accessToken, clientId }: ClipStatsProps) {
             <div className="mb-4">
               <h3 className="text-lg font-semibold text-green-900">{result.broadcasterName}</h3>
               <p className="text-sm text-green-700">ID: {result.broadcasterId}</p>
+              <p className="text-xs text-green-600 mt-1">📅 최근 {months}개월 데이터</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-lg bg-white p-4 shadow-sm">
