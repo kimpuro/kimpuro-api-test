@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ClipStats } from "./clip-stats";
 
 const SCOPES = [
   "channel:manage:broadcast",
@@ -405,6 +406,7 @@ export function TwitchTester({ envSummary }: TwitchTesterProps) {
 
   return (
     <div className="space-y-10">
+      <ClipStats accessToken={state.accessToken} clientId={state.clientId} />
       <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-6 shadow-sm">
         <header className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-black/5 pb-4">
           <div>
@@ -548,7 +550,7 @@ export function TwitchTester({ envSummary }: TwitchTesterProps) {
                         return;
                       }
                       await handleTokenExchange({ code });
-                      event.currentTarget.reset();
+                      (event.currentTarget as HTMLFormElement).reset();
                     }}
                   >
                     <input
