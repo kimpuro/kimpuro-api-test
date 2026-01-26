@@ -1,9 +1,10 @@
-import { TwitchTester } from "@/components/twitch-tester";
-import { getConfiguredEnvSummary } from "@/lib/env";
+
+import { TwitchLoginClient } from "@/app/twitch/twitch-login-client";
 
 export default function TwitchPage() {
-  const envSummary = getConfiguredEnvSummary();
-
-  return <TwitchTester envSummary={envSummary} />;
+  const clientId = process.env.NEXT_PUBLIC_TWITCH_CLIENT_ID;
+  const clientSecret = process.env.NEXT_PUBLIC_TWITCH_CLIENT_SECRET;
+  const callbackUri = process.env.NEXT_PUBLIC_TWITCH_CALLBACK_URI;
+  return <TwitchLoginClient clientId={clientId} clientSecret={clientSecret} redirectUri={callbackUri} />;
 }
 

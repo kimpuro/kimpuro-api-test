@@ -1,4 +1,4 @@
-const requiredEnv = ["TWITCH_CLIENT_ID", "TWITCH_CLIENT_SECRET", "TWITCH_REDIRECT_URI"] as const;
+const requiredEnv = ["TWITCH_CLIENT_ID", "TWITCH_CLIENT_SECRET", "TWITCH_CALLBACK_URI"] as const;
 
 type RequiredEnvKey = (typeof requiredEnv)[number];
 
@@ -13,7 +13,7 @@ function readEnv(key: RequiredEnvKey): string {
 export const twitchEnv = {
   clientId: () => readEnv("TWITCH_CLIENT_ID"),
   clientSecret: () => readEnv("TWITCH_CLIENT_SECRET"),
-  redirectUri: () => readEnv("TWITCH_REDIRECT_URI"),
+  callbackUri: () => readEnv("TWITCH_CALLBACK_URI"),
 };
 
 export function getConfiguredEnvSummary() {

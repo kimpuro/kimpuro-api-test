@@ -1,27 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
-export default function AuthCallbackPage({
-  searchParams,
-}: {
-  searchParams: Record<string, string | string[] | undefined>;
-}) {
+export default function AuthCallbackPage() {
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState<"pending" | "sent" | "copied">("pending");
   const code = useMemo(() => {
-    const value = searchParams["code"];
-    if (Array.isArray(value)) return value[0] ?? "";
-    return value ?? "";
+    return searchParams.get("code") ?? "";
   }, [searchParams]);
   const scope = useMemo(() => {
-    const value = searchParams["scope"];
-    if (Array.isArray(value)) return value.join(" ");
-    return value ?? "";
+    return searchParams.get("scope") ?? "";
   }, [searchParams]);
   const error = useMemo(() => {
-    const value = searchParams["error"];
-    if (Array.isArray(value)) return value[0] ?? "";
-    return value ?? "";
+    return searchParams.get("error") ?? "";
+  }, [searchParams]);
+  const state = useMemo(() => {
+    return searchParams.get("state") ?? "";
   }, [searchParams]);
 
   useEffect(() => {
@@ -31,10 +26,18 @@ export default function AuthCallbackPage({
       window.opener?.postMessage({ type: "twitch-auth-code", code, scope }, window.location.origin);
       window.sessionStorage.setItem("twitch-auth-code", code);
       setStatus("sent");
+
+      if (!window.opener) {
+        const params = new URLSearchParams();
+        params.set("code", code);
+        if (state) params.set("state", state);
+        if (scope) params.set("scope", scope);
+        window.location.replace(`/twitch?${params.toString()}`);
+      }
     } catch (err) {
       console.error("postMessage 실패", err);
     }
-  }, [code, scope]);
+  }, [code, scope, state]);
 
   if (error) {
     return (
@@ -45,10 +48,20 @@ export default function AuthCallbackPage({
         </p>
         <button
           type="button"
-          onClick={() => window.close()}
+          onClick={() => {
+            if (!window.opener) {
+              const params = new URLSearchParams();
+              if (code) params.set("code", code);
+              if (state) params.set("state", state);
+              if (scope) params.set("scope", scope);
+              window.location.href = `/twitch?${params.toString()}`;
+              return;
+            }
+            window.close();
+          }}
           className="rounded-lg bg-[#9146FF] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#6c2ddc]"
         >
-          창 닫기
+          로그인 화면으로 돌아가기
         </button>
       </div>
     );
@@ -109,10 +122,20 @@ export default function AuthCallbackPage({
 
       <button
         type="button"
-        onClick={() => window.close()}
+        onClick={() => {
+          if (!window.opener) {
+            const params = new URLSearchParams();
+            if (code) params.set("code", code);
+            if (state) params.set("state", state);
+            if (scope) params.set("scope", scope);
+            window.location.href = `/twitch?${params.toString()}`;
+            return;
+          }
+          window.close();
+        }}
         className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm text-foreground transition hover:border-[#9146FF]/40"
       >
-        창 닫기
+        로그인 화면으로 돌아가기
       </button>
     </div>
   );
